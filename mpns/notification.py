@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from cStringIO import StringIO
+import io
 
 try:
     register_namespace = ET.register_namespace
@@ -34,10 +34,13 @@ class MPNSBase(object):
         self.headers[self.HEADER_TARGET] = target
 
     def serialize_tree(self, tree):
-        file = StringIO()
+        file = io.BytesIO()
+
         tree.write(file, encoding='utf-8')
-        contents = "<?xml version='1.0' encoding='utf-8'?>" + file.getvalue()
+
+        contents = "<?xml version='1.0' encoding='utf-8'?>" + file.getvalue().decode("utf-8")
         file.close()
+
         return contents
 
     def optional_attribute(self, element, attribute, payload_param, payload):
@@ -51,6 +54,7 @@ class MPNSBase(object):
             return el
 
     def prepare_payload(self, payload):
+
         raise NotImplementedError('Subclasses should override prepare_payload method')
 
     def parse_response(self, response):
@@ -129,9 +133,10 @@ class MPNSBase(object):
             self.headers[self.HEADER_CALLBACK_URI] = str(callback_uri)
 
         data = self.prepare_payload(payload)
-        
+
         res = requests.post(uri, data=data, headers=self.headers, cert=cert)
         result = self.parse_response(res)
+        debug=True
         if debug:
             result['request'] = {'data': data, 'headers': dict(self.headers) }
             result['response'] = {'status': res.status_code, 'headers': dict(res.headers), 'text': res.text}
@@ -176,8 +181,10 @@ class MPNSTile(MPNSBase):
             return el
 
     def prepare_payload(self, payload):
+
         root = ET.Element("{WPNotification}Notification")
         tile = ET.SubElement(root, '{WPNotification}Tile')
+
         self.optional_attribute(tile, 'Id', 'id', payload)
         self.optional_attribute(tile, 'Template', 'template', payload)
         self.optional_subelement(tile, '{WPNotification}BackgroundImage', 'background_image', payload)
